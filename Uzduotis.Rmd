@@ -6,19 +6,19 @@ date:     "`r Sys.Date()`" # Automatic date
 # Document Format and Appearance ---------------------------------------------
 output:
   bookdown::html_document2: # Enables automatic numbering of figures & tables
-    highlight:       pygments # default tango kate monochrome espresso ...
+    highlight:       tango # default tango kate monochrome espresso ...
     code_folding:    none     # none show hide
     code_download:   yes      # yes no
     number_sections: yes      # Automatic numbering of sections: yes no
     toc:         yes          # Table of contents (toc): yes no
     toc_float:   yes          # yes no
-    toc_depth:   3            # 1 2 3 4 5
+    toc_depth:   2            # 1 2 3 4 5
     fig_caption: yes          # yes no
-    theme:       default      # cerulean journal flatly readable paper sandstone ...
+    theme:       cerulean      # cerulean journal flatly readable paper sandstone ...
     df_print:    default      # paged kable tibble default
 ---
 
-```{r setup, include=FALSE}
+```{r setup, error=FALSE, warning=FALSE, message=FALSE, results='hide'}
 # Packages ------------------------------------------------------------------
 
 library(conflicted)    # Get a warning/error if several functions with the same name exist.
@@ -88,6 +88,39 @@ conflicted::conflict_prefer("lag",    "dplyr")
 set.seed(20210125) # Initial condition for random processes.
 ```
 
+# Duoneų įkėlimas
 ```{r}
 data("wdbc", package = "mclust")
+```
+
+# Skaitinė suvestinė
+## Suvestini iš vidurkių
+```{r}
+duomenu_vidurkiai <- wdbc %>% 
+  summarise(
+    across(
+      ends_with("mean"), mean,))
+```
+### Lentelės atvaizdavimas
+```{r lent-1}
+lent <- head(duomenu_vidurkiai)
+knitr::kable(
+  lent,
+  caption = "Kelios duomenų eilutės iš suvestinė - duomenu_vidurkiai.  "
+)
+```
+## Suvestinė standartinio nuoktrypio
+```{r}
+duomenu_sd <- wdbc %>% 
+  summarise(
+    across(
+      ends_with("sd"), sd = sd,))
+```
+### Lentelės atvaizdavimas
+```{r lent-2}
+lent <- head(duomenu_sd)
+knitr::kable(
+  lent,
+  caption = "Kelios duomenų eilutės iš suvestinė - duomenu_sd.  "
+)
 ```
