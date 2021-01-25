@@ -142,13 +142,6 @@ glimpse(wd2)
 ```
 ```{r}
 wd2 %>% cor() %>% round(digits = 2)
-
-ggstatsplot::ggcorrmat(
-  wd2,
-  lab.size = 4,
-  pch.cex  = 7,
-  pch.col  = "darkred"
-)
 ```
 ### PCA sudarymas
 ```{r}
