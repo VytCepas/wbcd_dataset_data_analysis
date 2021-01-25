@@ -99,7 +99,10 @@ data("wdbc", package = "mclust")
 duomenu_vidurkiai <- wdbc %>% 
   summarise(
     across(
-      ends_with("mean"), mean,))
+      ends_with("mean"), mean)
+  )
+
+round(duomenu_vidurkiai, digits = 2)
 ```
 ### Lentelės atvaizdavimas
 ```{r lent-1}
@@ -109,18 +112,7 @@ knitr::kable(
   caption = "Kelios duomenų eilutės iš suvestinė - duomenu_vidurkiai.  "
 )
 ```
-## Suvestinė standartinio nuoktrypio
-```{r}
-duomenu_sd <- wdbc %>% 
-  summarise(
-    across(
-      ends_with("sd"), sd = sd,))
-```
-### Lentelės atvaizdavimas
-```{r lent-2}
-lent <- head(duomenu_sd)
-knitr::kable(
-  lent,
-  caption = "Kelios duomenų eilutės iš suvestinė - duomenu_sd.  "
-)
-```
+
+
+
+# Grafikai
