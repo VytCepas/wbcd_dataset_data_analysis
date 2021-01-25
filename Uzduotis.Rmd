@@ -71,8 +71,8 @@ Sys.setlocale(locale = "Lithuanian")
 knitr::opts_chunk$set(
   echo       = TRUE,    # Should blocks with program code be shown in knitted documents?
   eval       = TRUE,    # Should program code be evaluated?
-  fig.height = 3,       # Default height for plots.
-  fig.width  = 5,       # Default width for plots.
+  fig.height = 5,       # Default height for plots.
+  fig.width  = 8,       # Default width for plots.
   fig.align  = "center" # Default alignment for plots in knitted documents.
 )
 
@@ -116,3 +116,21 @@ knitr::kable(
 
 
 # Grafikai
+## Grafikas sugeneruotas ggplot2
+```{r pav-1}
+grafikas <- ggplot(wdbc, aes(x = Diagnosis, y = Radius_mean, color = Texture_mean, size = Perimeter_mean)) + 
+  geom_point(alpha = 0.5) +
+  labs(
+    x = "Diagnozė",
+    y = "Vidurkis vežio skermens",
+    title = "Gėrybinis vs piktybinį vėžį pagal parametrus",
+    caption = "Grafikas vaiduojantis vėžio diagnozę pagal vėžio skermens, tekstūros ir perimetro vidurkius.  ") +
+  theme_bw()
+ 
+```
+```{r pav-2, fig.cap=CAPTION}
+grafikas
+```
+Atvaizduotas __grafikas__ apibūdinantis vėžį piktybiškumą pagal parametrus \@ref(fig:pav-2)
+
+# 
