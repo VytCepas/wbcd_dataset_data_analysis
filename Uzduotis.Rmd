@@ -39,11 +39,11 @@ library(tidyverse)     # The main "tidyverse" packages.
 #library(ggtext)        # Improved Text Rendering Support for ggplot2.
 #library(ggrepel)       # Labels for ggplot2 that do not overlap.
 #library(patchwork)     # Join several ggplot2 plots into single figure.
-#library(gghighlight)   # Highlight Lines and Points in ggplot2.
+library(gghighlight)   # Highlight Lines and Points in ggplot2.
 #library(latex2exp)     # LaTeX-based equations in plots.
 #library(officer)       # Create and manipulate PowerPoint, Word, etc. documents.
 #library(rvg)           # To save editable plots in PowerPoint.
-#
+
 #library(broom)         # Convert results of statistical analysis to data frames.
 #library(rstatix)       # Pipe-friendly basic statistical tests.
 #library(rcompanion)    # Statistical analysis.
@@ -57,11 +57,11 @@ library(factoextra)    # Extract and visualize the results of multivariate data 
 #library(userfriendlyscience) # Statistical analysis.
 
 #library(pander)        # Function `pander()` to report results of statistical analysis.
-#library(knitr)         # Function `kable()` to convert data frames into tables for reports.
+library(knitr)         # Function `kable()` to convert data frames into tables for reports.
 #library(DT)            # Interactive tables for HTML documents (DataTables).
 #library(gt)            # Easily Create Presentation-Ready Display Tables.
 #library(flextable)     # Functions for Tabular Reporting.
-
+library(corrplot)
 
 # Settings ------------------------------------------------------------------
 
@@ -72,7 +72,7 @@ knitr::opts_chunk$set(
   echo       = TRUE,    # Should blocks with program code be shown in knitted documents?
   eval       = TRUE,    # Should program code be evaluated?
   fig.height = 5,       # Default height for plots.
-  fig.width  = 8,       # Default width for plots.
+  fig.width  = 6,       # Default width for plots.
   fig.align  = "center" # Default alignment for plots in knitted documents.
 )
 
@@ -88,90 +88,295 @@ conflicted::conflict_prefer("lag",    "dplyr")
 set.seed(20210125) # Initial condition for random processes.
 ```
 
-# Duoneų įkėlimas
+# Duomenų įkėlimas
 ```{r}
 data("wdbc", package = "mclust")
 ```
 
-# Skaitinė suvestinė
-## Suvestini iš vidurkių
+### Atrenkami duomenys, su kuriais bus dirbama toliau duomenų analizėje.
 ```{r}
-duomenu_vidurkiai <- wdbc %>% 
+duomenys <- wdbc[, 1:12]
+```
+
+### Stulpelių pervadinimas lietuviškais terminais pagal R programavimo kalbos tidyverse rekomendacijas
+```{r}
+duomenys_ <- duomenys %>% 
+  rename(id = "ID", diagnoze = "Diagnosis", spindulys = "Radius_mean", tekstura = "Texture_mean", perimetras = "Perimeter_mean", plotas = "Area_mean", tolygumas = "Smoothness_mean", kompaktiskumas = "Compactness_mean", igaubtumas = "Concavity_mean", n_igaubtumas = "Nconcave_mean", simetriskumas = "Symmetry_mean", fraktaliskumas = "Fractaldim_mean")
+```
+Stulpelių reikšmės:  
+
+* id = tiriamojo ID  
+* diagnoze = krūties vėžio diagnozė ( M - malignant (*_lt.* piktybinis), B - benign (*lt.* gerybinis))  
+* spindulys = atstumas nuo centro iki taško perimetre vidurkis  
+* tekstura = "grayscale" verčių standartinis nuokrypis  
+* perimetras = ląstelės branduolio perimetras  
+* plotas = ląstelės branduolio plotas  
+* tolygumas = spindulio ilgio variacija  
+* kompaktiskumas = ląstelės branduolio kompaktiškumas $\frac{perimetras ^ 2}{plotas - 1}$  
+* igaubtumas = įgaubtų kontūro dalių gilumas  
+* n_igaubtumas = įgaubtų kontūro dalių skaičius  
+* simetriskumas = ląstelės branduolio forma  
+* fraktaliskumas = fraktalo matmuo $\ „pakrantės\ aproksimacija“ - 1$  
+
+### Patikrinimas ar yra trūkstamų reikšmių
+```{r}
+sapply(duomenys_, function(x) sum(is.na(x)))
+```
+Trūkstamų reikšmių *nėra*.  
+
+# Skaitinė suvestinė
+```{r}
+duomenys_suvest <- 
+  duomenys_[, -1] %>%
+  group_by(diagnoze) %>% 
   summarise(
     across(
-      ends_with("mean"), mean)
-  )
-
-round(duomenu_vidurkiai, digits = 2)
+      where(is.numeric),
+      list(
+        vidurkis       = mean, 
+        st_nuokrypis   = sd,
+        asimetr_koef   = DescTools::Skew,
+        imtis   = ~n() 
+      ))
+  ) %>%
+  mutate(across(where(is.numeric), ~round(., digits = 2))) 
 ```
-### Lentelės atvaizdavimas
+### Skaitinės suvestinės lentelės atvaizdavimas
 ```{r lent-1}
-lent <- head(duomenu_vidurkiai)
+lent <- head(duomenys_suvest)
 knitr::kable(
   lent,
-  caption = "Kelios duomenų eilutės iš suvestinė - duomenu_vidurkiai.  "
+  caption = "Suvestinės lentelė"
 )
 ```
 
 
-
 # Grafikai
-## Grafikas sugeneruotas ggplot2
-```{r pav-1}
-grafikas <- ggplot(wdbc, aes(x = Diagnosis, y = Radius_mean, color = Texture_mean, size = Perimeter_mean)) + 
-  geom_point(alpha = 0.5) +
-  labs(
-    x = "Diagnozė",
-    y = "Vidurkis vežio skermens",
-    title = "Gėrybinis vs piktybinį vėžį pagal parametrus",
-    caption = "Grafikas vaiduojantis vėžio diagnozę pagal vėžio skermens, tekstūros ir perimetro vidurkius.  ") +
+### 1 Grafikas (plotas ~ diagnoze)
+```{r}
+grafikas_1 <- duomenys_ %>% ggplot(
+  aes(x = diagnoze, y = plotas, size = spindulys)) +
+    geom_point(color = "brown", alpha = 0.1) +
+    gghighlight(plotas > mean(duomenys_$plotas)) + 
+    coord_flip() +
+    labs(x = "Diagnozė",
+         y = "Auglio plotas",
+         title = "Gėrybinis vs. piktybinis auglys",
+         size = "Spindulys") +
   theme_bw()
- 
 ```
-```{r pav-2, fig.cap=CAPTION}
-CAPTION = "Grafikas"
-grafikas
+## 1 Grafiko (plotas ~ diagnoze) atvaizdavimas
+
+```{r pav-1, fig.cap=CAPTION, fig.height=4, fig.width=10}
+CAPTION = "Grafikas vaiduojantis gėrybinį vs. piktybinį auglį pagal auglio plotą ir spindulį, raudona spalva nuspalvinti taškai, kurie viršija piktybinio ir nepiktybinio auglio bendro ploto vidurkį."
+grafikas_1
 ```
-Atvaizduotas __grafikas__ apibūdinantis vėžį piktybiškumą pagal parametrus \@ref(fig:pav-2)
+Atvaizduotas __grafikas__ apibūdinantis auglį piktybiškumą vs. nepiktybiškumą pagal parametrus \@ref(fig:pav-1)
+
+### 2 Grafikas (tekstura ~ diagnoze)
+```{r}
+grafikas_2 <- duomenys_ %>% ggplot(
+  aes(x = diagnoze, y = tekstura, size = tolygumas)) +
+    geom_point(color = "brown", alpha = 0.1) +
+    coord_flip() +
+    labs(x = "Diagnozė",
+         y = "Tekstūra",
+         title = "Gėrybinis vs. piktybinis auglys",
+         size = "Tolygumas") +
+  theme_gray()
+```
+
+## 2 Grafiko (diagnoze ~ tekstura) atvaizdavimas
+```{r pav-2, fig.cap=CAPTION, fig.height=4, fig.width=10}
+CAPTION = "Grafikas vaiduojantis gėrybinį vs. piktybinį auglį pagal auglio tekstūrą ir tolygumą."
+grafikas_2
+```
+
+### 3 Grafikas (diagnoze ~ perimetra)
+```{r}
+grafikas_3 <- duomenys_ %>% ggplot(
+  aes(x = diagnoze, y = perimetras, size = simetriskumas)) +
+    geom_point(color = "brown", alpha = 0.1) +
+    coord_flip() +
+    labs(x = "Diagnozė",
+         y = "Perimetras",
+         title = "Gėrybinis vs. piktybinis auglys",
+         size = "Simetriškumas") +
+  theme_grey()
+```
+
+## 3 Grafiko (diagnoze ~ perimetras) atvaizdavimas
+```{r pav-3, fig.cap=CAPTION, fig.height=4, fig.width=10}
+CAPTION = "Grafikas vaiduojantis gėrybinį vs. piktybinį auglį pagal auglio perimetras ir simetriškumą."
+grafikas_3
+```
+
+### 4 Grafikas (diagnoze ~ perimetra)
+```{r}
+grafikas_4 <- duomenys_ %>% ggplot(
+  aes(x = diagnoze, y = igaubtumas, size = n_igaubtumas)) +
+    geom_point(color = "brown", alpha = 0.1) +
+    coord_flip() + 
+    labs(x = "Diagnozė",
+         y = "Įgaubtumas",
+         title = "Gėrybinis vs. piktybinis auglys",
+         size = "Įgaubtų kontūrų dalis") +
+  theme_gray()
+```
+
+## 4 Grafiko (diagnoze ~ tekstura) atvaizdavimas
+```{r pav-4, fig.cap=CAPTION, fig.height=4, fig.width=10}
+CAPTION = "Grafikas vaiduojantis gėrybinį vs. piktybinį auglį pagal auglio perimetras ir simetriškumą."
+grafikas_4
+```
+
+
 
 # Duomenų analizė
-## Daugiamačių skalių (klasikinį PCoA)
+## Hierarchinė analizė
+### Duomenų paruošimas hierarchinei analizei
 ```{r}
-wd2 <- wdbc %>% select_if(is.numeric)
-glimpse(wd2)
-```
-```{r}
-wd2 %>% cor() %>% round(digits = 2)
-```
-### PCA sudarymas
-```{r}
-wd_pca <- prcomp(wd2, center = TRUE, scale = TRUE)
-wd_pca
-```
-```{r}
-get_eigenvalue(wd_pca) %>%
-  round(1)
-```
-```{r}
-fviz_screeplot(wd_pca, addlabels = TRUE, choice = "variance")
+duomenys_paruost <- duomenys_[, -1] %>% select_if(is.numeric)
 ```
 
-PCA bus sudaryta iš 5 dimensijų, kadangi deviacija paaiškina virš *80%* 5 dimensijos. 
-## Hierarchinė duomenų analizė
 ### Duomenų standartizavimas
 ```{r}
-wd3 <- wdbc %>% select_if(is.numeric)
-wd5 <- scale(wd3)
+duomenys_standart <- scale(duomenys_paruost)
 ```
-### Trūkstamų reikšmių pašalinimas, jei tokių yra
+
+### Hierarchinė klasterizacija
 ```{r}
-wd4 <- na.omit(wd5)
+eclust_rez_duomenu <-
+  eclust(
+    duomenys_standart, stand = TRUE, nboot = 500, k.max = 10,
+    FUNcluster = "hclust", hc_metric = "euclidean", hc_method = "ward.D2"
+  )
 ```
-### Atstūmų skaičiavimas
+
+### Klusteriu kiekio optimalaus kiekio nustatymas grafiku
 ```{r}
-wd6 <- dist(wd4)
+fviz_gap_stat(eclust_rez_duomenu$gap_stat)
 ```
-### Atstumų atvaizdavimas grafiku
+
+### Optimalus klusterių kiekio nustatymas
 ```{r}
-fviz_dist(wd6)
+eclust_rez_duomenu$nbclust
 ```
+
+### Silueto grafikas
+```{r}
+fviz_silhouette(eclust_rez_duomenu)
+```
+
+### Dendograma
+```{r}
+fviz_dend(eclust_rez_duomenu, rect = TRUE)
+```
+
+### PCA pagrįstas sklaidos grafikas
+```{r}
+fviz_cluster(eclust_rez_duomenu)
+```
+
+### Klusterių taškams "vardų priskirimas" 
+```{r}
+eclust_rez_duomenu$cluster
+```
+
+### Klasteriuose bendras taškų pasiskirstymas
+```{r}
+with(eclust_rez_duomenu, table(cluster))
+```
+
+### Gautas hierarchinės klasterizacijos rezultatas
+```{r}
+eclust_rez_duomenu
+```
+
+### Rezulatų palyginimas su tikrais duomenimis
+```{r}
+hierarch_klasterizacija <- eclust_rez_duomenu$cluster
+tikri_duomenys <- duomenys_$diagnoze
+```
+```{r}
+sukryzminti_duomenys <- table(hierarch_klasterizacija, tikri_duomenys)
+sukryzminti_duomenys
+```
+
+### Atvaizdavimas sukryžmintų (palygintų) duomenų grafiškai
+```{r}
+as.data.frame(sukryzminti_duomenys) %>% 
+  ggplot(aes(x = tikri_duomenys, y = hierarch_klasterizacija, fill = Freq, label = Freq)) +
+  geom_tile() +
+  geom_text(color = "white") +
+  scale_y_discrete(limits = rev) + 
+  labs(x = "Tikri duomenys",
+       y = "Gauti duomenys",
+       fill = "Dažnis")
+```
+
+## Daugiamačių skalių (klasikinis PCoA) metodas
+### Atstumų nustatymas
+```{r}
+duomenys_atstum <- duomenys_standart %>%  dist(method = "euclidean")
+```
+
+### Grafiškai atvaizduoti atstumai
+```{r}
+factoextra::fviz_dist(duomenys_atstum, show_labels = FALSE)
+```
+
+### Principinių koordinačių analizė
+```{r}
+pcoa_duomenys <- cmdscale(duomenys_atstum, k = 3, eig = TRUE)
+```
+### Grafikas savitajai (anlg. eigenvalue) reikšmei
+```{r}
+ind <- 1:10
+qplot(factor(ind), pcoa_duomenys$eig[ind], xlab = "Dimension", ylab = "Eigenvalue")
+```
+### Positive
+```{r}
+rel_eig_1 <- pcoa_duomenys$eig[ind]/sum(abs(pcoa_duomenys$eig))
+qplot(
+  x = factor(ind), y = rel_eig_1[ind] * 100, color = I("red"),
+  xlab = "Dimension", ylab = "Eigenvalue, % (absolute)"
+)
+```
+### Absolute
+```{r}
+rel_eig_2 <- pcoa_duomenys$eig[ind]/sum(pcoa_duomenys$eig[pcoa_duomenys$eig > 0])
+qplot(
+  x = factor(ind), y = rel_eig_2[ind] * 100, color = I("blue"),
+  xlab = "Dimension", ylab = "Eigenvalue, % (positive)"
+)
+```
+
+### Goodnes of fit (GOF)
+```{r}
+pcoa_duomenys$GOF
+```
+### Coordinates in MDS space
+```{r}
+pcoa_coord_duomenys <- as.data.frame(pcoa_duomenys$points)
+pcoa_coord_duomenys %>% head()
+```
+
+# Plot MDS map (MDS configuration map) with ggplot2
+```{r}
+ggplot(pcoa_coord_duomenys, aes(V1, V2)) +
+  geom_point(alpha = 0.5)
+```
+# Plot MDS map in colors
+```{r}
+pcoa_coord_duomenys %>%
+  bind_cols(duomenys_) %>%
+  ggplot(aes(V1, V2, color = diagnoze)) +
+  geom_point(alpha = 0.5)
+```
+
+
+
+--------------------------------------------------------------------------------
+
+R markdown panaudota sintaksė: 
