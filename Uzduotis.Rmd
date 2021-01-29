@@ -384,7 +384,7 @@ pcoa_coord_duomenys %>%
 ```
 Iš grafiko galime matyti pasiskirstymą pagal spalvas dviejų klusterių.  
 
-
+Atliktos klasterinės analizės parodė, kad yra du klasteriai, kurie atitinka realių duomenų diagnozės piktybinio ir gėrybinio auglio.
 ***
 
 R markdown panaudota sintaksė: 
@@ -396,3 +396,4 @@ R markdown panaudota sintaksė:
     Nuorodos į paveikslus
     Lygties pavaizdavimas
     ***
+    
