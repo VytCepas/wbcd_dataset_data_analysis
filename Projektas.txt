@@ -1,0 +1,33 @@
+### Duomenų parengimas
+```{r}
+duomenys_parengt <- duomenys_[, -1] %>% select_if(is.numeric)
+```
+
+### Duomenų sukoreliavimas
+```{r}
+duomenys_korel <- duomenys_parengt %>% cor() %>% round(digits = 2)
+```
+
+### Duomenų korialiavimo atvaizdavimas grafiku
+```{r, }
+corrplot(duomenys_korel, method="number")
+```
+Dalis kintamųjų vienas su kitu **yra** koreliuoti, todėl tikslinga atlikti PCoA metodą, kadangi kintamųjų yra 10 ir atvaizduoti juos sunku.
+
+### Duomenų standartizavimas ir principinių komponenčių sudarymas (PCA)
+```{r}
+duomenys_pca <- prcomp(duomenys_parengt, center = TRUE, scale = TRUE)
+duomenys_pca
+```
+
+### PCA modelio diagnostika - nustatymas kiek principinių komponenčių užtenka 80proc variacijos paaiškinti
+```{r}
+get_eigenvalue(duomenys_pca) %>%
+  round(1)
+```
+### Atvaizdavimas grafiškai 
+```{r}
+fviz_screeplot(duomenys_pca, addlabels = TRUE, choice = "eigenvalue")
+fviz_screeplot(duomenys_pca, addlabels = TRUE, choice = "variance")
+```
+Dvi principinės komponentės paaiškina 80% variacijos, todėl užteks 2 principinių komponenčių. 
